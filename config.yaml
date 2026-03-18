@@ -79,15 +79,42 @@ preferences:
     # 补充偏好（可选）
 
 fetch:
-  hours: 24  # 抓取最近 N 小时内的文章，默认 24
+  hours: 24             # 抓取最近 N 小时内的文章
+  request_interval: 1.5 # 每次微信 API 请求间隔（秒），避免频率限制
+
+branding:
+  title: "微信公众号日报"           # 日报标题，会出现在所有推送渠道
+  footer: "由 wechat-radar 自动生成" # 邮件页脚署名
+
+ai:
+  temperature: 0.3        # 评分 AI 温度（越低越稳定）
+  intro_temperature: 0.5  # 开场白 AI 温度（越高越有创意）
+  max_content_length: 4000  # 送入 AI 评分的正文最大字符数
+  min_content_length: 50    # 正文少于此字数则跳过 AI 评分
+  # intro_style: |         # 自定义开场白风格提示（取消注释后覆盖默认）
+  #   像朋友聊天一样，挑一个最有意思的点展开
+
+dedup:
+  title_threshold: 0.5    # 标题相似度阈值（0-1，越高越严格）
+
+prefilter:
+  # 技术白名单：标题含这些关键词的文章不会被预过滤掉（正则，不区分大小写）
+  tech_whitelist:
+    - "GPT|GLM|Claude|Gemini|Llama|Qwen|DeepSeek"
+    - "大模型|LLM|AI|人工智能|开源|模型|算法|Token|Agent|RAG"
+    - "芯片|GPU|CUDA|Transformer|微调|Fine.?tune|Embedding"
+  # 广告关键词组合（同时命中才过滤）
+  ad_rules:
+    - trigger: "限时"
+      keywords: "折扣|优惠|特价|秒杀|抢购"
+    - trigger: "免费领"
+      keywords: "课程|资料|电子书|模板|工具包"
 
 schedule:
-  # 定时运行的 cron 表达式，可配置多个
-  # 格式：分 时 日 月 周（标准 crontab 格式）
-  # 运行 python3 main.py --setup-cron 自动写入 crontab
   cron:
     - "0 9 * * *"    # 每天 09:00
     - "0 18 * * *"   # 每天 18:00
+  log_file: /tmp/wechat-radar.log
 
 scoring:
   weights:

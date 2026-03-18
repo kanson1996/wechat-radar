@@ -14,12 +14,23 @@ import requests
 
 logger = logging.getLogger(__name__)
 
+_DEFAULT_TITLE = "微信公众号日报"
+_DEFAULT_FOOTER = "由 wechat-radar 自动生成"
+
+
+def _brand_title(branding: dict = None) -> str:
+    return (branding or {}).get("title", _DEFAULT_TITLE)
+
+
+def _brand_footer(branding: dict = None) -> str:
+    return (branding or {}).get("footer", _DEFAULT_FOOTER)
+
 
 # ──────────────────────────────────────────────
 # 飞书推送
 # ──────────────────────────────────────────────
 
-def send_feishu(articles: list[dict], intro: str = "") -> bool:
+def send_feishu(articles: list[dict], intro: str = "", branding: dict = None) -> bool:
     """发送飞书卡片消息（批量，一条消息汇总所有推荐文章）"""
     webhook = os.getenv("FEISHU_WEBHOOK", "")
     if not webhook:
@@ -30,7 +41,7 @@ def send_feishu(articles: list[dict], intro: str = "") -> bool:
         logger.info("No articles to send to Feishu")
         return True
 
-    card = _build_feishu_card(articles, intro)
+    card = _build_feishu_card(articles, intro, branding)
     try:
         resp = requests.post(webhook, json=card, timeout=10)
         resp.raise_for_status()
@@ -46,15 +57,16 @@ def send_feishu(articles: list[dict], intro: str = "") -> bool:
         return False
 
 
-def _build_feishu_card(articles: list[dict], intro: str = "") -> dict:
+def _build_feishu_card(articles: list[dict], intro: str = "", branding: dict = None) -> dict:
     """构建飞书消息卡片（interactive card 格式）"""
     date_str = _today_str()
+    brand = _brand_title(branding)
     elements = []
 
     # 标题
     elements.append({
         "tag": "markdown",
-        "content": f"**📰 微信公众号日报 · {date_str}**\n共 {len(articles)} 篇推荐"
+        "content": f"**📰 {brand} · {date_str}**\n共 {len(articles)} 篇推荐"
     })
 
     # 开场白
@@ -118,7 +130,7 @@ def _build_feishu_card(articles: list[dict], intro: str = "") -> dict:
         "msg_type": "interactive",
         "card": {
             "header": {
-                "title": {"tag": "plain_text", "content": f"微信公众号日报 · {date_str}"},
+                "title": {"tag": "plain_text", "content": f"{brand} · {date_str}"},
                 "template": "blue"
             },
             "elements": elements
@@ -130,7 +142,7 @@ def _build_feishu_card(articles: list[dict], intro: str = "") -> dict:
 # 钉钉推送
 # ──────────────────────────────────────────────
 
-def send_dingtalk(articles: list[dict], intro: str = "") -> bool:
+def send_dingtalk(articles: list[dict], intro: str = "", branding: dict = None) -> bool:
     """发送钉钉机器人 Markdown 消息"""
     webhook = os.getenv("DINGTALK_WEBHOOK", "")
     if not webhook:
@@ -142,12 +154,13 @@ def send_dingtalk(articles: list[dict], intro: str = "") -> bool:
         return True
 
     date_str = _today_str()
-    text = _build_markdown_text(articles, intro)
+    brand = _brand_title(branding)
+    text = _build_markdown_text(articles, intro, branding)
 
     payload = {
         "msgtype": "markdown",
         "markdown": {
-            "title": f"微信公众号日报 · {date_str}",
+            "title": f"{brand} · {date_str}",
             "text": text
         }
     }
@@ -171,7 +184,7 @@ def send_dingtalk(articles: list[dict], intro: str = "") -> bool:
 # 企业微信推送
 # ──────────────────────────────────────────────
 
-def send_wecom(articles: list[dict], intro: str = "") -> bool:
+def send_wecom(articles: list[dict], intro: str = "", branding: dict = None) -> bool:
     """发送企业微信群机器人 Markdown 消息"""
     webhook = os.getenv("WECOM_WEBHOOK", "")
     if not webhook:
@@ -182,7 +195,7 @@ def send_wecom(articles: list[dict], intro: str = "") -> bool:
         logger.info("No articles to send to WeCom")
         return True
 
-    text = _build_markdown_text(articles, intro)
+    text = _build_markdown_text(articles, intro, branding)
 
     payload = {
         "msgtype": "markdown",
@@ -208,7 +221,7 @@ def send_wecom(articles: list[dict], intro: str = "") -> bool:
 # Telegram Bot 推送
 # ──────────────────────────────────────────────
 
-def send_telegram(articles: list[dict], intro: str = "") -> bool:
+def send_telegram(articles: list[dict], intro: str = "", branding: dict = None) -> bool:
     """发送 Telegram Bot 消息"""
     bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
     chat_id = os.getenv("TELEGRAM_CHAT_ID", "")
@@ -220,7 +233,7 @@ def send_telegram(articles: list[dict], intro: str = "") -> bool:
         logger.info("No articles to send to Telegram")
         return True
 
-    text = _build_markdown_text(articles, intro)
+    text = _build_markdown_text(articles, intro, branding)
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
     payload = {
         "chat_id": chat_id,
@@ -248,7 +261,7 @@ def send_telegram(articles: list[dict], intro: str = "") -> bool:
 # Bark 推送（iOS）
 # ──────────────────────────────────────────────
 
-def send_bark(articles: list[dict], intro: str = "") -> bool:
+def send_bark(articles: list[dict], intro: str = "", branding: dict = None) -> bool:
     """发送 Bark 推送（iOS 通知）"""
     bark_url = os.getenv("BARK_URL", "")  # e.g. https://api.day.app/yourkey
     if not bark_url:
@@ -261,7 +274,8 @@ def send_bark(articles: list[dict], intro: str = "") -> bool:
 
     bark_url = bark_url.rstrip("/")
     date_str = _today_str()
-    title = f"微信公众号日报 · {date_str}"
+    brand = _brand_title(branding)
+    title = f"{brand} · {date_str}"
 
     # Bark 单条通知，拼摘要
     lines = []
@@ -295,7 +309,7 @@ def send_bark(articles: list[dict], intro: str = "") -> bool:
 # Server酱推送
 # ──────────────────────────────────────────────
 
-def send_serverchan(articles: list[dict], intro: str = "") -> bool:
+def send_serverchan(articles: list[dict], intro: str = "", branding: dict = None) -> bool:
     """通过 Server酱（SCT）推送到微信"""
     send_key = os.getenv("SERVERCHAN_KEY", "")
     if not send_key:
@@ -307,8 +321,9 @@ def send_serverchan(articles: list[dict], intro: str = "") -> bool:
         return True
 
     date_str = _today_str()
-    title = f"微信公众号日报 · {date_str}（{len(articles)} 篇）"
-    desp = _build_markdown_text(articles, intro)
+    brand = _brand_title(branding)
+    title = f"{brand} · {date_str}（{len(articles)} 篇）"
+    desp = _build_markdown_text(articles, intro, branding)
 
     url = f"https://sctapi.ftqq.com/{send_key}.send"
     payload = {"title": title, "desp": desp}
@@ -332,7 +347,7 @@ def send_serverchan(articles: list[dict], intro: str = "") -> bool:
 # PushPlus 推送
 # ──────────────────────────────────────────────
 
-def send_pushplus(articles: list[dict], intro: str = "") -> bool:
+def send_pushplus(articles: list[dict], intro: str = "", branding: dict = None) -> bool:
     """通过 PushPlus 推送到微信"""
     token = os.getenv("PUSHPLUS_TOKEN", "")
     if not token:
@@ -344,8 +359,9 @@ def send_pushplus(articles: list[dict], intro: str = "") -> bool:
         return True
 
     date_str = _today_str()
-    title = f"微信公众号日报 · {date_str}（{len(articles)} 篇）"
-    content = _build_markdown_text(articles, intro)
+    brand = _brand_title(branding)
+    title = f"{brand} · {date_str}（{len(articles)} 篇）"
+    content = _build_markdown_text(articles, intro, branding)
 
     url = "https://www.pushplus.plus/send"
     payload = {
@@ -374,10 +390,11 @@ def send_pushplus(articles: list[dict], intro: str = "") -> bool:
 # 通用 Markdown 文本构建（企业微信/钉钉/Telegram/Server酱/PushPlus 复用）
 # ──────────────────────────────────────────────
 
-def _build_markdown_text(articles: list[dict], intro: str = "") -> str:
+def _build_markdown_text(articles: list[dict], intro: str = "", branding: dict = None) -> str:
     """构建通用 Markdown 格式的日报文本"""
     date_str = _today_str()
-    lines = [f"## 微信公众号日报 · {date_str}", f"共 {len(articles)} 篇推荐", ""]
+    brand = _brand_title(branding)
+    lines = [f"## {brand} · {date_str}", f"共 {len(articles)} 篇推荐", ""]
     if intro:
         lines.append(f"> {intro}")
         lines.append("")
@@ -437,7 +454,7 @@ def _get_smtp_config(email: str) -> tuple[str, int, bool]:
     return f"smtp.{domain}", 465, True
 
 
-def send_email(articles: list[dict], intro: str = "") -> bool:
+def send_email(articles: list[dict], intro: str = "", branding: dict = None) -> bool:
     """通过 SMTP 发送 HTML 日报（自动识别邮箱类型）"""
     email_user = os.getenv("EMAIL_USER", "") or os.getenv("GMAIL_USER", "")
     email_pass = os.getenv("EMAIL_PASSWORD", "") or os.getenv("GMAIL_APP_PASSWORD", "")
@@ -454,8 +471,9 @@ def send_email(articles: list[dict], intro: str = "") -> bool:
     smtp_host, smtp_port, use_ssl = _get_smtp_config(email_user)
 
     date_str = _today_str()
-    subject = f"微信公众号日报 · {date_str}（{len(articles)} 篇推荐）"
-    html_body = _build_gmail_html(articles, date_str, intro)
+    brand = _brand_title(branding)
+    subject = f"{brand} · {date_str}（{len(articles)} 篇推荐）"
+    html_body = _build_gmail_html(articles, date_str, intro, branding)
 
     recipients = [addr.strip() for addr in email_to.split(",") if addr.strip()]
 
@@ -498,7 +516,7 @@ def send_email(articles: list[dict], intro: str = "") -> bool:
 send_gmail = send_email
 
 
-def _build_gmail_html(articles: list[dict], date_str: str, intro: str = "") -> str:
+def _build_gmail_html(articles: list[dict], date_str: str, intro: str = "", branding: dict = None) -> str:
     # 卷首语
     intro_html = ""
     if intro:
@@ -582,6 +600,7 @@ def _build_gmail_html(articles: list[dict], date_str: str, intro: str = "") -> s
             </div>
             """
 
+    footer = _brand_footer(branding)
     return f"""
     <html><body style="font-family:-apple-system,'Helvetica Neue',sans-serif;max-width:620px;margin:0 auto;padding:40px 20px;color:#333;">
         <div style="text-align:center;margin-bottom:24px;">
@@ -592,7 +611,7 @@ def _build_gmail_html(articles: list[dict], date_str: str, intro: str = "") -> s
         {toc_html}
         {items_html}
         <hr style="border:none;border-top:1px solid #eee;margin:40px 0 16px;" />
-        <p style="text-align:center;color:#bbb;font-size:12px;">由 wechat-digest 自动生成</p>
+        <p style="text-align:center;color:#bbb;font-size:12px;">{footer}</p>
     </body></html>
     """
 

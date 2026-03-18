@@ -110,7 +110,10 @@ def run(test_mode: bool = False, dry_run: bool = False):
     scoring_config = config.get("scoring", {})
     min_score = scoring_config.get("min_score", 5)
     top_n = scoring_config.get("top_n", 10)
-    fetch_hours = config.get("fetch", {}).get("hours", 24)
+    fetch_config = config.get("fetch", {})
+    fetch_hours = fetch_config.get("hours", 24)
+    ai_config = config.get("ai", {})
+    min_content_length = ai_config.get("min_content_length", 50)
 
     if not accounts:
         logger.error("No accounts in config.yaml")
@@ -125,6 +128,10 @@ def run(test_mode: bool = False, dry_run: bool = False):
     # 3. 拉取文章
     all_articles = []
     newly_processed = set()
+
+    # 设置请求间隔
+    import fetcher as _fetcher_mod
+    _fetcher_mod.API_INTERVAL = fetch_config.get("request_interval", 1.5)
 
     for account_name in accounts:
         logger.info(f"\n── Fetching: {account_name} ──")
@@ -149,7 +156,7 @@ def run(test_mode: bool = False, dry_run: bool = False):
                 continue
 
             # Step 0: 规则预过滤（标题级）
-            if should_skip(art["title"], ""):
+            if should_skip(art["title"], "", config):
                 logger.info(f"  Skip (prefilter/title): {art['title'][:40]}")
                 newly_processed.add(url)
                 continue
@@ -166,7 +173,7 @@ def run(test_mode: bool = False, dry_run: bool = False):
             images = content_data.get("images", [])
 
             # Step 0: 规则预过滤（标题+正文）
-            if should_skip(art["title"], text):
+            if should_skip(art["title"], text, config):
                 logger.info(f"  Skip (prefilter/content): {art['title'][:40]}")
                 newly_processed.add(url)
                 continue
@@ -182,7 +189,8 @@ def run(test_mode: bool = False, dry_run: bool = False):
     logger.info(f"\nAfter prefilter: {len(all_articles)} articles")
 
     # Step 1: 跨源去重
-    all_articles = deduplicate(all_articles)
+    dedup_threshold = config.get("dedup", {}).get("title_threshold", 0.5)
+    all_articles = deduplicate(all_articles, threshold=dedup_threshold)
     logger.info(f"After dedup: {len(all_articles)} articles")
 
     # Step 2: AI 评分
@@ -190,7 +198,7 @@ def run(test_mode: bool = False, dry_run: bool = False):
 
     for art in all_articles:
         # Bug 4: 正文为空或极短时跳过 AI 评分
-        if len((art.get("text") or "").strip()) < 50:
+        if len((art.get("text") or "").strip()) < min_content_length:
             logger.info(f"  Skip AI scoring (content too short): {art['title'][:50]}")
             all_results.append({
                 "title": art["title"],
@@ -260,20 +268,21 @@ def run(test_mode: bool = False, dry_run: bool = False):
     intro = ""
     if push_articles:
         logger.info("Generating newsletter intro...")
-        intro = generate_intro(push_articles)
+        intro = generate_intro(push_articles, config=config)
         if intro:
             logger.info(f"Intro: {intro[:80]}...")
 
     # Step 5: 推送
+    branding = config.get("branding", {})
     if not dry_run and push_articles:
-        send_feishu(push_articles, intro=intro)
-        send_dingtalk(push_articles, intro=intro)
-        send_wecom(push_articles, intro=intro)
-        send_email(push_articles, intro=intro)
-        send_telegram(push_articles, intro=intro)
-        send_bark(push_articles, intro=intro)
-        send_serverchan(push_articles, intro=intro)
-        send_pushplus(push_articles, intro=intro)
+        send_feishu(push_articles, intro=intro, branding=branding)
+        send_dingtalk(push_articles, intro=intro, branding=branding)
+        send_wecom(push_articles, intro=intro, branding=branding)
+        send_email(push_articles, intro=intro, branding=branding)
+        send_telegram(push_articles, intro=intro, branding=branding)
+        send_bark(push_articles, intro=intro, branding=branding)
+        send_serverchan(push_articles, intro=intro, branding=branding)
+        send_pushplus(push_articles, intro=intro, branding=branding)
     elif dry_run:
         logger.info("[dry-run] Skipping push")
         if intro:
@@ -334,7 +343,8 @@ def setup_cron():
     import subprocess
 
     config = yaml.safe_load(CONFIG_FILE.read_text(encoding="utf-8"))
-    cron_list = config.get("schedule", {}).get("cron", [])
+    schedule_config = config.get("schedule", {})
+    cron_list = schedule_config.get("cron", [])
 
     if not cron_list:
         logger.error("config.yaml 中没有配置 schedule.cron")
@@ -342,7 +352,7 @@ def setup_cron():
 
     python_path = sys.executable
     project_dir = str(_script_dir)
-    log_file = f"/tmp/wechat-radar.log"
+    log_file = schedule_config.get("log_file", "/tmp/wechat-radar.log")
 
     # 读取现有 crontab（排除本项目的行）
     try:
