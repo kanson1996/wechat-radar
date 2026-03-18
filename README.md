@@ -11,7 +11,7 @@ AI 驱动的微信公众号智能日报 — 自动抓取、多维度评分、个
 - **跨源去重** — bigram Jaccard 相似度，同一事件只保留最优
 - **AI 多维度评分** — 4 个维度加权打分，Pydantic 结构化输出
 - **个性化用户画像** — 基于你的背景、兴趣、偏好定制评分
-- **多渠道推送** — 飞书 / 钉钉 / 邮件（Gmail、QQ邮箱、163邮箱等，自动识别 SMTP）
+- **8 种推送渠道** — 飞书 / 钉钉 / 企业微信 / 邮件 / Telegram / Bark / Server酱 / PushPlus
 - **评分日志** — 完整保留所有文章评分，供持续调优
 
 ## 数据流
@@ -23,7 +23,7 @@ AI 驱动的微信公众号智能日报 — 自动抓取、多维度评分、个
   → [Step 2] AI 4 维度评分（LLM + Pydantic 结构化输出）
   → [Step 3] 排序 Top N（综合分 < 5 不推送）
   → [Step 4] 生成开场白（LLM 额外调用）
-  → [Step 5] 推送（飞书 / 钉钉 / 邮件，按需配置）
+  → [Step 5] 推送（8 种渠道按需配置）
   → [Step 6] 保存 state + 评分日志
 ```
 
@@ -63,7 +63,12 @@ cp .env.example .env
 - 推送渠道（至少选一个）：
   - `FEISHU_WEBHOOK` — 飞书群机器人
   - `DINGTALK_WEBHOOK` — 钉钉群机器人
+  - `WECOM_WEBHOOK` — 企业微信群机器人
   - `EMAIL_USER` / `EMAIL_PASSWORD` / `EMAIL_TO` — 邮件（自动识别 Gmail / QQ邮箱 / 163邮箱 / Outlook）
+  - `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` — Telegram Bot
+  - `BARK_URL` — Bark（iOS 推送）
+  - `SERVERCHAN_KEY` — Server酱（推送到微信）
+  - `PUSHPLUS_TOKEN` — PushPlus（推送到微信）
 
 编辑 `config.yaml`：
 - `accounts` — 已内置 48 个精选 AI / 科技 / 创投方向优质公众号，可直接使用或自行增删
@@ -110,7 +115,7 @@ wechat-radar/
 ├── filter.py        AI 多维度评分 + 开场白生成
 ├── prefilter.py     规则预过滤（关键词组合 + 技术白名单）
 ├── dedup.py         跨源去重（bigram Jaccard + 正文相似度）
-├── notifier.py      多渠道推送（飞书 / 钉钉 / 邮件）
+├── notifier.py      多渠道推送（8 种渠道）
 ├── auth.py          微信扫码登录 / token 管理
 ├── assets/          Newsletter 头图等静态资源
 ├── .env.example     环境变量模板
@@ -127,10 +132,12 @@ wechat-radar/
 - 按 category 分区展示（深度分析 / 行业观察 / 工具推荐 / 活动资讯）
 - 每篇文章：标题 + 缩略图 + 摘要 + 推荐理由 + 维度评分
 
-### 飞书 / 钉钉
+### IM / 推送通知
 
-- 飞书：交互式卡片消息，每篇文章带"阅读原文"按钮
-- 钉钉：Markdown 格式消息，含开场白 + 文章列表
+- **飞书**：交互式卡片消息，每篇文章带"阅读原文"按钮
+- **钉钉 / 企业微信 / Telegram**：Markdown 格式消息
+- **Server酱 / PushPlus**：推送到微信，适合个人使用
+- **Bark**：iOS 原生推送通知
 
 ## 技术栈
 

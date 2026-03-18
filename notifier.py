@@ -1,5 +1,5 @@
 """
-notifier.py - 推送到飞书和 Gmail（支持开场白、category 标签、维度评分）
+notifier.py - 多渠道推送（飞书/钉钉/企业微信/邮件/Telegram/Bark/Server酱/PushPlus）
 """
 import logging
 import os
@@ -142,34 +142,13 @@ def send_dingtalk(articles: list[dict], intro: str = "") -> bool:
         return True
 
     date_str = _today_str()
-    lines = [f"## 微信公众号日报 · {date_str}\n", f"共 {len(articles)} 篇推荐\n"]
-    if intro:
-        lines.append(f"\n> {intro}\n")
-    lines.append("---\n")
-
-    for i, art in enumerate(articles, 1):
-        category = art.get("category", "")
-        title = art["title"]
-        url = art.get("url", "")
-        account = art.get("account_name", "")
-        summary = art.get("summary", "")
-        reason = art.get("reason", "")
-        final_score = art.get("final_score", 0)
-
-        prefix = f"**{i}. [{category}]** " if category else f"**{i}.** "
-        lines.append(f"{prefix}[{title}]({url})" if url else f"{prefix}{title}")
-        lines.append(f"\n来源：{account}" + (f"　|　综合分：{final_score:.1f}" if final_score else ""))
-        if summary:
-            lines.append(f"\n{summary}")
-        if reason:
-            lines.append(f"\n💡 {reason}")
-        lines.append("\n---\n")
+    text = _build_markdown_text(articles, intro)
 
     payload = {
         "msgtype": "markdown",
         "markdown": {
             "title": f"微信公众号日报 · {date_str}",
-            "text": "\n".join(lines)
+            "text": text
         }
     }
 
@@ -186,6 +165,244 @@ def send_dingtalk(articles: list[dict], intro: str = "") -> bool:
     except Exception as e:
         logger.error(f"DingTalk send failed: {e}")
         return False
+
+
+# ──────────────────────────────────────────────
+# 企业微信推送
+# ──────────────────────────────────────────────
+
+def send_wecom(articles: list[dict], intro: str = "") -> bool:
+    """发送企业微信群机器人 Markdown 消息"""
+    webhook = os.getenv("WECOM_WEBHOOK", "")
+    if not webhook:
+        logger.warning("WECOM_WEBHOOK not set, skipping")
+        return False
+
+    if not articles:
+        logger.info("No articles to send to WeCom")
+        return True
+
+    text = _build_markdown_text(articles, intro)
+
+    payload = {
+        "msgtype": "markdown",
+        "markdown": {"content": text}
+    }
+
+    try:
+        resp = requests.post(webhook, json=payload, timeout=10)
+        resp.raise_for_status()
+        result = resp.json()
+        if result.get("errcode") == 0:
+            logger.info(f"WeCom sent: {len(articles)} articles")
+            return True
+        else:
+            logger.error(f"WeCom API error: {result}")
+            return False
+    except Exception as e:
+        logger.error(f"WeCom send failed: {e}")
+        return False
+
+
+# ──────────────────────────────────────────────
+# Telegram Bot 推送
+# ──────────────────────────────────────────────
+
+def send_telegram(articles: list[dict], intro: str = "") -> bool:
+    """发送 Telegram Bot 消息"""
+    bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    chat_id = os.getenv("TELEGRAM_CHAT_ID", "")
+    if not bot_token or not chat_id:
+        logger.warning("TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set, skipping")
+        return False
+
+    if not articles:
+        logger.info("No articles to send to Telegram")
+        return True
+
+    text = _build_markdown_text(articles, intro)
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "Markdown",
+        "disable_web_page_preview": True,
+    }
+
+    try:
+        resp = requests.post(url, json=payload, timeout=10)
+        resp.raise_for_status()
+        result = resp.json()
+        if result.get("ok"):
+            logger.info(f"Telegram sent: {len(articles)} articles")
+            return True
+        else:
+            logger.error(f"Telegram API error: {result}")
+            return False
+    except Exception as e:
+        logger.error(f"Telegram send failed: {e}")
+        return False
+
+
+# ──────────────────────────────────────────────
+# Bark 推送（iOS）
+# ──────────────────────────────────────────────
+
+def send_bark(articles: list[dict], intro: str = "") -> bool:
+    """发送 Bark 推送（iOS 通知）"""
+    bark_url = os.getenv("BARK_URL", "")  # e.g. https://api.day.app/yourkey
+    if not bark_url:
+        logger.warning("BARK_URL not set, skipping")
+        return False
+
+    if not articles:
+        logger.info("No articles to send to Bark")
+        return True
+
+    bark_url = bark_url.rstrip("/")
+    date_str = _today_str()
+    title = f"微信公众号日报 · {date_str}"
+
+    # Bark 单条通知，拼摘要
+    lines = []
+    if intro:
+        lines.append(intro)
+        lines.append("")
+    for i, art in enumerate(articles[:10], 1):
+        score = art.get("final_score", 0)
+        lines.append(f"{i}. {art['title']}（{score:.1f}分）")
+    if len(articles) > 10:
+        lines.append(f"...共 {len(articles)} 篇")
+
+    body = "\n".join(lines)
+
+    try:
+        resp = requests.post(f"{bark_url}/{title}/{body}", timeout=10)
+        resp.raise_for_status()
+        result = resp.json()
+        if result.get("code") == 200:
+            logger.info(f"Bark sent: {len(articles)} articles")
+            return True
+        else:
+            logger.error(f"Bark API error: {result}")
+            return False
+    except Exception as e:
+        logger.error(f"Bark send failed: {e}")
+        return False
+
+
+# ──────────────────────────────────────────────
+# Server酱推送
+# ──────────────────────────────────────────────
+
+def send_serverchan(articles: list[dict], intro: str = "") -> bool:
+    """通过 Server酱（SCT）推送到微信"""
+    send_key = os.getenv("SERVERCHAN_KEY", "")
+    if not send_key:
+        logger.warning("SERVERCHAN_KEY not set, skipping")
+        return False
+
+    if not articles:
+        logger.info("No articles to send to ServerChan")
+        return True
+
+    date_str = _today_str()
+    title = f"微信公众号日报 · {date_str}（{len(articles)} 篇）"
+    desp = _build_markdown_text(articles, intro)
+
+    url = f"https://sctapi.ftqq.com/{send_key}.send"
+    payload = {"title": title, "desp": desp}
+
+    try:
+        resp = requests.post(url, json=payload, timeout=10)
+        resp.raise_for_status()
+        result = resp.json()
+        if result.get("code") == 0:
+            logger.info(f"ServerChan sent: {len(articles)} articles")
+            return True
+        else:
+            logger.error(f"ServerChan API error: {result}")
+            return False
+    except Exception as e:
+        logger.error(f"ServerChan send failed: {e}")
+        return False
+
+
+# ──────────────────────────────────────────────
+# PushPlus 推送
+# ──────────────────────────────────────────────
+
+def send_pushplus(articles: list[dict], intro: str = "") -> bool:
+    """通过 PushPlus 推送到微信"""
+    token = os.getenv("PUSHPLUS_TOKEN", "")
+    if not token:
+        logger.warning("PUSHPLUS_TOKEN not set, skipping")
+        return False
+
+    if not articles:
+        logger.info("No articles to send to PushPlus")
+        return True
+
+    date_str = _today_str()
+    title = f"微信公众号日报 · {date_str}（{len(articles)} 篇）"
+    content = _build_markdown_text(articles, intro)
+
+    url = "https://www.pushplus.plus/send"
+    payload = {
+        "token": token,
+        "title": title,
+        "content": content,
+        "template": "markdown",
+    }
+
+    try:
+        resp = requests.post(url, json=payload, timeout=10)
+        resp.raise_for_status()
+        result = resp.json()
+        if result.get("code") == 200:
+            logger.info(f"PushPlus sent: {len(articles)} articles")
+            return True
+        else:
+            logger.error(f"PushPlus API error: {result}")
+            return False
+    except Exception as e:
+        logger.error(f"PushPlus send failed: {e}")
+        return False
+
+
+# ──────────────────────────────────────────────
+# 通用 Markdown 文本构建（企业微信/钉钉/Telegram/Server酱/PushPlus 复用）
+# ──────────────────────────────────────────────
+
+def _build_markdown_text(articles: list[dict], intro: str = "") -> str:
+    """构建通用 Markdown 格式的日报文本"""
+    date_str = _today_str()
+    lines = [f"## 微信公众号日报 · {date_str}", f"共 {len(articles)} 篇推荐", ""]
+    if intro:
+        lines.append(f"> {intro}")
+        lines.append("")
+    lines.append("---")
+    lines.append("")
+
+    for i, art in enumerate(articles, 1):
+        category = art.get("category", "")
+        title = art["title"]
+        url = art.get("url", "")
+        account = art.get("account_name", "")
+        summary = art.get("summary", "")
+        reason = art.get("reason", "")
+        final_score = art.get("final_score", 0)
+
+        prefix = f"**{i}. [{category}]** " if category else f"**{i}.** "
+        lines.append(f"{prefix}[{title}]({url})" if url else f"{prefix}{title}")
+        lines.append(f"来源：{account}" + (f"　|　综合分：{final_score:.1f}" if final_score else ""))
+        if summary:
+            lines.append(f"\n{summary}")
+        if reason:
+            lines.append(f"\n💡 {reason}")
+        lines.append("\n---\n")
+
+    return "\n".join(lines)
 
 
 # ──────────────────────────────────────────────

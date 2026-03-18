@@ -27,7 +27,11 @@ from fetcher import get_fakeid, get_recent_articles, get_article_content, TokenE
 from filter import filter_article, generate_intro
 from prefilter import should_skip
 from dedup import deduplicate
-from notifier import send_feishu, send_email, send_dingtalk
+from notifier import (
+    send_feishu, send_dingtalk, send_wecom,
+    send_email, send_telegram, send_bark,
+    send_serverchan, send_pushplus,
+)
 
 # ──────────────────────────────────────────────
 # 日志配置
@@ -261,7 +265,12 @@ def run(test_mode: bool = False, dry_run: bool = False):
     if not dry_run and push_articles:
         send_feishu(push_articles, intro=intro)
         send_dingtalk(push_articles, intro=intro)
+        send_wecom(push_articles, intro=intro)
         send_email(push_articles, intro=intro)
+        send_telegram(push_articles, intro=intro)
+        send_bark(push_articles, intro=intro)
+        send_serverchan(push_articles, intro=intro)
+        send_pushplus(push_articles, intro=intro)
     elif dry_run:
         logger.info("[dry-run] Skipping push")
         if intro:
