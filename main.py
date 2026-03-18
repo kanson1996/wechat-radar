@@ -40,7 +40,8 @@ logging.basicConfig(
 logger = logging.getLogger("main")
 
 STATE_FILE = _script_dir / "state.json"
-CONFIG_FILE = _script_dir / "config.yaml"
+CONFIG_LOCAL = _script_dir / "config.yaml.local"
+CONFIG_FILE = CONFIG_LOCAL if CONFIG_LOCAL.exists() else _script_dir / "config.yaml"
 LOG_DIR = _script_dir / "logs"
 
 

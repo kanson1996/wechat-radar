@@ -1,87 +1,37 @@
 accounts:
-  - 笔记侠
-  - 晚点LatePost
-  - 孤独大脑
-  - 牛村木木山
-  - Stablehunter
-  - 我思故我在
-  - 卫夕指北
-  - 潜云思绪
-  - 特工宇宙
+  # 添加你想关注的微信公众号名称，每行一个
   - 虎嗅APP
-  - 有新Newin
-  - 无界社区mix lab
-  - AI Reinvent
-  - Z Potentials
-  - AI寒武纪
-  - Founder Park
   - 机器之心
-  - 张晓东西南北
-  - AI工程化
-  - 赛博禅心
-  - APPSO
-  - InfoQ
-  - 奇绩创坛
-  - 郎瀚威Will
   - 少数派
-  - 硅星人Pro
-  - 经纬创投
-  - AI产品阿颖
-  - 卓哥投研笔记
-  - 猫猫头的日记
-  - 数字生命卡兹克
-  - P-Hunt内容速览
-  - 红杉汇
-  - 创新工场
-  - Draco正在VibeCoding
-  - AkashaBot
-  - 张五常
-  - 智能涌现
-  - 42章经
-  - 十字路口Crossing
-  - 望月的博客
-  - 花叔
-  - MacTalk
-  - 豪大说
-  - 真格基金
-  - caoz的梦呓
-  - 随机小分队
-  - AI Hacker House
+  # - 更多公众号...
 
 profile:
-  background: "金融本科 + 西班牙商业分析硕士，现转型 AI PM。有投资/VC 领域认知基础，正在用 vibe coding（OpenClaw + Claude Code）构建 AI-native 产品。日常大量使用 AI 工具，对 AI 产品设计决策、成本/质量/延迟权衡有实践认知。"
+  background: "简要描述你的背景，例如：计算机本科，3 年后端开发经验，目前在关注 AI 应用方向。"
   expertise_level: intermediate  # beginner / intermediate / advanced
   interests:
-    - AI Agent 产品落地
-    - AI 创业与商业化
-    - 产品设计与用户体验
-    - 科技行业趋势
-    - VC 观点与投资逻辑
-    - AI 新产品推荐与测评
-    - 上海 AI 活动与 meetup
+    - AI 技术趋势
+    - 产品设计
+    - 创业与商业化
+    # 添加更多你感兴趣的领域...
   preferences:
-    prefer_practical: true
-    avoid_marketing_hype: true
+    prefer_practical: true       # 偏好实操内容
+    avoid_marketing_hype: true   # 过滤营销软文
   custom: |
-    - 正在做的项目：微信公众号 AI 筛选推送系统，关注相关技术方案和产品设计思路
-    - 投资视角：对 VC 观点、投资人见解、AI 赛道投资逻辑、创业融资复盘感兴趣（经纬/红杉/真格/奇绩等）
-    - AI 产品体验：关注 Product Hunt 级别的新 AI 产品推荐、产品测评、用户增长故事（未来计划做专门的产品体验模块）
-    - AI 活动：关注上海地区的 AI 活动、meetup、hackathon、行业大会信息
-    - 特别想看：AI Agent 实际应用案例、创业者真实复盘、有数据/案例支撑的深度分析
-    - 偏好 prompt engineering、structured output、eval 等 AI 工程化话题
-    - 不想看：纯融资新闻通稿、没有观点的信息搬运、"AI 将改变一切"的空泛预测
+    # 在这里补充更具体的偏好，帮助 AI 更精准地评分：
+    # - 特别想看：xxx
+    # - 不想看：xxx
+    # - 关注的具体领域：xxx
 
 preferences:
   # 合并模式: memory_only | custom_only | memory+custom
-  merge_mode: memory+custom
+  merge_mode: custom_only
 
-  # 来源1: 读取 memory 文件，自动提取偏好相关段落
-  memory_files:
-    - ~/.claude/projects/-Users-cathy-Documents-trae-projects-Claude-Code/memory/AI-PM-transition.md
+  # 来源1: 读取 memory 文件，自动提取偏好相关段落（可选）
+  memory_files: []
 
   # 来源2: 自定义补充
   custom: |
-    # 补充偏好（后续完善）
+    # 补充偏好（可选）
 
 scoring:
   weights:
