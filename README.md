@@ -80,14 +80,17 @@ cp .env.example .env
 - 任何 OpenAI 兼容接口
 
 **推送渠道**（至少选一个）：
-- `FEISHU_WEBHOOK` — 飞书群机器人
-- `DINGTALK_WEBHOOK` — 钉钉群机器人
-- `WECOM_WEBHOOK` — 企业微信群机器人
-- `EMAIL_USER` / `EMAIL_PASSWORD` / `EMAIL_TO` — 邮件（自动识别 Gmail / QQ邮箱 / 163邮箱 / Outlook）
-- `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` — Telegram Bot
-- `BARK_URL` — Bark（iOS 推送）
-- `SERVERCHAN_KEY` — Server酱（推送到微信）
-- `PUSHPLUS_TOKEN` — PushPlus（推送到微信）
+
+| 渠道 | 环境变量 | 说明 |
+|------|---------|------|
+| 飞书 | `FEISHU_WEBHOOK` | 群机器人 Webhook，支持交互式卡片消息 |
+| 钉钉 | `DINGTALK_WEBHOOK` | 群机器人 Webhook，Markdown 格式 |
+| 企业微信 | `WECOM_WEBHOOK` | 群机器人 Webhook，Markdown 格式 |
+| 邮件 | `EMAIL_USER` / `EMAIL_PASSWORD` / `EMAIL_TO` | 自动识别 Gmail / QQ / 163 / Outlook，Newsletter 风格 |
+| Telegram | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | Bot 推送，Markdown 格式 |
+| Bark | `BARK_URL` | iOS 原生推送通知 |
+| Server酱 | `SERVERCHAN_KEY` | 推送到微信，适合个人使用 |
+| PushPlus | `PUSHPLUS_TOKEN` | 推送到微信，支持多种模板 |
 
 ### 3. 编辑 config.yaml
 
@@ -98,13 +101,19 @@ cp .env.example .env
 - `ai` — AI 温度、正文截取长度、开场白风格等
 - `dedup` / `prefilter` — 去重阈值、过滤关键词（可选调整）
 
-### 4. 登录微信
+### 4. 登录微信公众号平台
+
+> **前提**：你需要有一个微信公众号（订阅号即可）。本系统通过微信公众号后台（mp.weixin.qq.com）的接口来搜索和拉取文章，因此需要以公众号管理员身份登录。
+>
+> 如果你还没有公众号，可以免费注册一个个人订阅号：前往 [微信公众平台](https://mp.weixin.qq.com/) → 立即注册 → 选择「订阅号」→ 用个人微信即可完成注册，无需企业资质。
 
 ```bash
 python3 main.py --login
 ```
 
-扫码登录后 token 会保存到 `token.json`（有效期约 3 天）。
+运行后会弹出二维码，用**绑定了公众号的微信**扫码确认登录。token 会保存到 `token.json`。
+
+> **关于 token 有效期**：token 有效期约 3 天，由微信服务端控制，无法自定义延长。过期后需要重新运行 `--login` 扫码续期。如果配置了推送渠道，token 过期时系统会自动发送通知提醒你重新登录。
 
 ### 5. 运行
 
@@ -182,20 +191,16 @@ wechat-radar/
 
 ## 推送效果
 
-### 邮件 Newsletter
-
-- 自定义品牌 banner 头图
-- AI 生成的卷首语（每日不同，风格可配置）
-- 本期概要（按分类导览）
-- 按 category 分区展示（深度分析 / 行业观察 / 工具推荐 / 活动资讯）
-- 每篇文章：标题 + 缩略图 + 摘要 + 推荐理由 + 维度评分
-
-### IM / 推送通知
-
-- **飞书**：交互式卡片消息，每篇文章带"阅读原文"按钮
-- **钉钉 / 企业微信 / Telegram**：Markdown 格式消息
-- **Server酱 / PushPlus**：推送到微信，适合个人使用
-- **Bark**：iOS 原生推送通知
+| 渠道 | 消息格式 | 特点 |
+|------|---------|------|
+| 邮件 | HTML Newsletter | 品牌 banner + AI 卷首语 + 分类导览 + 缩略图 + 维度评分 |
+| 飞书 | 交互式卡片 | 每篇文章带「阅读原文」按钮 |
+| 钉钉 | Markdown | 结构化摘要 + 原文链接 |
+| 企业微信 | Markdown | 结构化摘要 + 原文链接 |
+| Telegram | Markdown | 结构化摘要 + 原文链接 |
+| Server酱 | Markdown | 推送到微信，适合个人 |
+| PushPlus | Markdown | 推送到微信，支持多种模板 |
+| Bark | 通知 | iOS 原生推送，点击跳转原文 |
 
 ## 技术栈
 

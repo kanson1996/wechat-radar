@@ -317,19 +317,103 @@ def _now_cst() -> str:
 
 
 def _notify_token_expired():
-    """发飞书通知提示重新登录"""
-    webhook = os.environ.get("FEISHU_WEBHOOK", "")
-    if not webhook:
-        return
-    try:
-        import requests as _req
-        msg = {
-            "msg_type": "text",
-            "content": {"text": "⚠️ 微信登录已过期，请运行 python3 main.py --login 重新扫码登录"},
-        }
-        _req.post(webhook, json=msg, timeout=10)
-    except Exception as e:
-        logger.warning(f"Failed to send Feishu expiry notice: {e}")
+    """通过所有已配置的推送渠道通知 token 过期"""
+    alert_text = "⚠️ 微信登录已过期，请运行 python3 main.py --login 重新扫码登录"
+    sent = False
+
+    # 飞书
+    feishu_webhook = os.environ.get("FEISHU_WEBHOOK", "")
+    if feishu_webhook:
+        try:
+            import requests as _req
+            _req.post(feishu_webhook, json={"msg_type": "text", "content": {"text": alert_text}}, timeout=10)
+            sent = True
+        except Exception as e:
+            logger.warning(f"Feishu alert failed: {e}")
+
+    # 钉钉
+    dingtalk_webhook = os.environ.get("DINGTALK_WEBHOOK", "")
+    if dingtalk_webhook:
+        try:
+            import requests as _req
+            _req.post(dingtalk_webhook, json={"msgtype": "text", "text": {"content": alert_text}}, timeout=10)
+            sent = True
+        except Exception as e:
+            logger.warning(f"DingTalk alert failed: {e}")
+
+    # 企业微信
+    wecom_webhook = os.environ.get("WECOM_WEBHOOK", "")
+    if wecom_webhook:
+        try:
+            import requests as _req
+            _req.post(wecom_webhook, json={"msgtype": "text", "text": {"content": alert_text}}, timeout=10)
+            sent = True
+        except Exception as e:
+            logger.warning(f"WeCom alert failed: {e}")
+
+    # Telegram
+    tg_token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    tg_chat = os.environ.get("TELEGRAM_CHAT_ID", "")
+    if tg_token and tg_chat:
+        try:
+            import requests as _req
+            _req.post(f"https://api.telegram.org/bot{tg_token}/sendMessage",
+                      json={"chat_id": tg_chat, "text": alert_text}, timeout=10)
+            sent = True
+        except Exception as e:
+            logger.warning(f"Telegram alert failed: {e}")
+
+    # Bark
+    bark_url = os.environ.get("BARK_URL", "")
+    if bark_url:
+        try:
+            import requests as _req
+            url = f"{bark_url.rstrip('/')}/Token过期提醒/{alert_text}"
+            _req.get(url, timeout=10)
+            sent = True
+        except Exception as e:
+            logger.warning(f"Bark alert failed: {e}")
+
+    # Server酱
+    sc_key = os.environ.get("SERVERCHAN_KEY", "")
+    if sc_key:
+        try:
+            import requests as _req
+            _req.post(f"https://sctapi.ftqq.com/{sc_key}.send",
+                      data={"title": "Token过期提醒", "desp": alert_text}, timeout=10)
+            sent = True
+        except Exception as e:
+            logger.warning(f"ServerChan alert failed: {e}")
+
+    # PushPlus
+    pp_token = os.environ.get("PUSHPLUS_TOKEN", "")
+    if pp_token:
+        try:
+            import requests as _req
+            _req.post("http://www.pushplus.plus/send",
+                      json={"token": pp_token, "title": "Token过期提醒", "content": alert_text}, timeout=10)
+            sent = True
+        except Exception as e:
+            logger.warning(f"PushPlus alert failed: {e}")
+
+    # 邮件
+    email_user = os.environ.get("EMAIL_USER") or os.environ.get("GMAIL_USER", "")
+    if email_user:
+        try:
+            send_email(
+                [{"title": "微信登录过期提醒", "account_name": "系统", "url": "",
+                  "summary": alert_text, "reason": "", "tags": [], "category": "系统通知",
+                  "scores": {}, "final_score": 0, "images": [], "cover": ""}],
+                intro=alert_text, branding=None,
+            )
+            sent = True
+        except Exception as e:
+            logger.warning(f"Email alert failed: {e}")
+
+    if sent:
+        logger.info("Token expiry alert sent via configured channels")
+    else:
+        logger.warning("No push channels configured — cannot send token expiry alert")
 
 
 # ──────────────────────────────────────────────
