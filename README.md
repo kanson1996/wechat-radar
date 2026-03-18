@@ -29,9 +29,6 @@ cd wechat-radar
 
 ### 方式二：手动安装
 
-<details>
-<summary>展开手动安装步骤</summary>
-
 ```bash
 # 1. 安装依赖
 git clone https://github.com/cathyzhang0905/wechat-radar.git
@@ -51,8 +48,6 @@ python3 main.py --login
 python3 main.py --dry-run  # 试运行（不推送）
 python3 main.py            # 正式运行
 ```
-
-</details>
 
 > **关于微信登录**：需要有一个微信公众号（免费的个人订阅号即可）。前往 [微信公众平台](https://mp.weixin.qq.com/) 注册，用个人微信即可完成，无需企业资质。token 有效期约 3 天（微信服务端控制），过期后系统会自动通过已配置的推送渠道提醒你重新扫码。
 
