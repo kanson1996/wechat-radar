@@ -127,35 +127,126 @@ def _build_feishu_card(articles: list[dict], intro: str = "") -> dict:
 
 
 # ──────────────────────────────────────────────
-# Gmail 推送（SMTP）
+# 钉钉推送
 # ──────────────────────────────────────────────
 
-def send_gmail(articles: list[dict], intro: str = "") -> bool:
-    """通过 Gmail SMTP 发送 HTML 日报"""
-    gmail_user = os.getenv("GMAIL_USER", "")
-    app_password = os.getenv("GMAIL_APP_PASSWORD", "")
-    gmail_to = os.getenv("GMAIL_TO", gmail_user)
-
-    if not gmail_user or not app_password:
-        logger.warning("GMAIL_USER or GMAIL_APP_PASSWORD not set, skipping")
+def send_dingtalk(articles: list[dict], intro: str = "") -> bool:
+    """发送钉钉机器人 Markdown 消息"""
+    webhook = os.getenv("DINGTALK_WEBHOOK", "")
+    if not webhook:
+        logger.warning("DINGTALK_WEBHOOK not set, skipping")
         return False
 
     if not articles:
-        logger.info("No articles to send via Gmail")
+        logger.info("No articles to send to DingTalk")
         return True
+
+    date_str = _today_str()
+    lines = [f"## 微信公众号日报 · {date_str}\n", f"共 {len(articles)} 篇推荐\n"]
+    if intro:
+        lines.append(f"\n> {intro}\n")
+    lines.append("---\n")
+
+    for i, art in enumerate(articles, 1):
+        category = art.get("category", "")
+        title = art["title"]
+        url = art.get("url", "")
+        account = art.get("account_name", "")
+        summary = art.get("summary", "")
+        reason = art.get("reason", "")
+        final_score = art.get("final_score", 0)
+
+        prefix = f"**{i}. [{category}]** " if category else f"**{i}.** "
+        lines.append(f"{prefix}[{title}]({url})" if url else f"{prefix}{title}")
+        lines.append(f"\n来源：{account}" + (f"　|　综合分：{final_score:.1f}" if final_score else ""))
+        if summary:
+            lines.append(f"\n{summary}")
+        if reason:
+            lines.append(f"\n💡 {reason}")
+        lines.append("\n---\n")
+
+    payload = {
+        "msgtype": "markdown",
+        "markdown": {
+            "title": f"微信公众号日报 · {date_str}",
+            "text": "\n".join(lines)
+        }
+    }
+
+    try:
+        resp = requests.post(webhook, json=payload, timeout=10)
+        resp.raise_for_status()
+        result = resp.json()
+        if result.get("errcode") == 0:
+            logger.info(f"DingTalk sent: {len(articles)} articles")
+            return True
+        else:
+            logger.error(f"DingTalk API error: {result}")
+            return False
+    except Exception as e:
+        logger.error(f"DingTalk send failed: {e}")
+        return False
+
+
+# ──────────────────────────────────────────────
+# 邮件推送（通用 SMTP，支持 Gmail / QQ / 163 / Outlook 等）
+# ──────────────────────────────────────────────
+
+# 常见邮箱 SMTP 配置（host, port, use_ssl）
+_SMTP_PRESETS = {
+    "gmail.com":      ("smtp.gmail.com",      465, True),
+    "qq.com":         ("smtp.qq.com",          465, True),
+    "foxmail.com":    ("smtp.qq.com",          465, True),
+    "163.com":        ("smtp.163.com",         465, True),
+    "126.com":        ("smtp.126.com",         465, True),
+    "yeah.net":       ("smtp.yeah.net",        465, True),
+    "outlook.com":    ("smtp-mail.outlook.com", 587, False),
+    "hotmail.com":    ("smtp-mail.outlook.com", 587, False),
+}
+
+
+def _get_smtp_config(email: str) -> tuple[str, int, bool]:
+    """根据邮箱域名自动匹配 SMTP 配置，支持环境变量覆盖"""
+    host = os.getenv("SMTP_HOST", "")
+    port = os.getenv("SMTP_PORT", "")
+    if host and port:
+        return host, int(port), int(port) == 465
+
+    domain = email.split("@")[-1].lower()
+    if domain in _SMTP_PRESETS:
+        return _SMTP_PRESETS[domain]
+
+    logger.warning(f"Unknown email domain '{domain}', trying SSL on port 465")
+    return f"smtp.{domain}", 465, True
+
+
+def send_email(articles: list[dict], intro: str = "") -> bool:
+    """通过 SMTP 发送 HTML 日报（自动识别邮箱类型）"""
+    email_user = os.getenv("EMAIL_USER", "") or os.getenv("GMAIL_USER", "")
+    email_pass = os.getenv("EMAIL_PASSWORD", "") or os.getenv("GMAIL_APP_PASSWORD", "")
+    email_to = os.getenv("EMAIL_TO", "") or os.getenv("GMAIL_TO", email_user)
+
+    if not email_user or not email_pass:
+        logger.warning("EMAIL_USER/EMAIL_PASSWORD not set, skipping email")
+        return False
+
+    if not articles:
+        logger.info("No articles to send via email")
+        return True
+
+    smtp_host, smtp_port, use_ssl = _get_smtp_config(email_user)
 
     date_str = _today_str()
     subject = f"微信公众号日报 · {date_str}（{len(articles)} 篇推荐）"
     html_body = _build_gmail_html(articles, date_str, intro)
 
-    recipients = [addr.strip() for addr in gmail_to.split(",") if addr.strip()]
+    recipients = [addr.strip() for addr in email_to.split(",") if addr.strip()]
 
     msg = MIMEMultipart("related")
     msg["Subject"] = subject
-    msg["From"] = gmail_user
+    msg["From"] = email_user
     msg["To"] = ", ".join(recipients)
 
-    # HTML 部分
     msg_alt = MIMEMultipart("alternative")
     msg_alt.attach(MIMEText(html_body, "html", "utf-8"))
     msg.attach(msg_alt)
@@ -170,14 +261,24 @@ def send_gmail(articles: list[dict], intro: str = "") -> bool:
             msg.attach(banner_img)
 
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(gmail_user, app_password)
-            server.sendmail(gmail_user, recipients, msg.as_string())
-        logger.info(f"Gmail sent to {recipients}: {len(articles)} articles")
+        if use_ssl:
+            with smtplib.SMTP_SSL(smtp_host, smtp_port) as server:
+                server.login(email_user, email_pass)
+                server.sendmail(email_user, recipients, msg.as_string())
+        else:
+            with smtplib.SMTP(smtp_host, smtp_port) as server:
+                server.starttls()
+                server.login(email_user, email_pass)
+                server.sendmail(email_user, recipients, msg.as_string())
+        logger.info(f"Email sent via {smtp_host} to {recipients}: {len(articles)} articles")
         return True
     except Exception as e:
-        logger.error(f"Gmail send failed: {e}")
+        logger.error(f"Email send failed: {e}")
         return False
+
+
+# 向后兼容
+send_gmail = send_email
 
 
 def _build_gmail_html(articles: list[dict], date_str: str, intro: str = "") -> str:

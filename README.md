@@ -11,7 +11,7 @@ AI 驱动的微信公众号智能日报 — 自动抓取、多维度评分、个
 - **跨源去重** — bigram Jaccard 相似度，同一事件只保留最优
 - **AI 多维度评分** — 4 个维度加权打分，Pydantic 结构化输出
 - **个性化用户画像** — 基于你的背景、兴趣、偏好定制评分
-- **Newsletter 风格推送** — 飞书卡片 + Gmail HTML（按分类分区、卷首语、缩略图）
+- **多渠道推送** — 飞书 / 钉钉 / 邮件（Gmail、QQ邮箱、163邮箱等，自动识别 SMTP）
 - **评分日志** — 完整保留所有文章评分，供持续调优
 
 ## 数据流
@@ -60,8 +60,10 @@ cp .env.example .env
 
 需要配置：
 - `AI_PROVIDER` / `AI_API_KEY` / `AI_BASE_URL` — AI 评分模型（支持 Anthropic / OpenAI 兼容接口）
-- `FEISHU_WEBHOOK` — 飞书群机器人 webhook
-- `GMAIL_USER` / `GMAIL_APP_PASSWORD` / `GMAIL_TO` — Gmail SMTP
+- 推送渠道（至少选一个）：
+  - `FEISHU_WEBHOOK` — 飞书群机器人
+  - `DINGTALK_WEBHOOK` — 钉钉群机器人
+  - `EMAIL_USER` / `EMAIL_PASSWORD` / `EMAIL_TO` — 邮件（自动识别 Gmail / QQ邮箱 / 163邮箱 / Outlook）
 
 编辑 `config.yaml`：
 - `accounts` — 你要关注的公众号列表
