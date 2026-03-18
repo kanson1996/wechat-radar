@@ -6,23 +6,25 @@ AI 驱动的微信公众号智能日报 — 自动抓取、多维度评分、个
 
 ## 功能
 
-- **公众号监控** — 自动抓取 24 小时内新文章
-- **规则预过滤** — 关键词组合过滤广告软文，技术文章白名单放行
-- **跨源去重** — bigram Jaccard 相似度，同一事件只保留最优
-- **AI 多维度评分** — 4 个维度加权打分，Pydantic 结构化输出
+- **公众号监控** — 自动抓取新文章（时间范围可配置，默认 24 小时）
+- **规则预过滤** — 关键词组合过滤广告软文，技术白名单放行（规则可自定义）
+- **跨源去重** — bigram Jaccard 相似度，同一事件只保留最优（阈值可调）
+- **AI 多维度评分** — 维度完全可配置（默认 4 个 + 4 个可选），支持自定义维度
 - **个性化用户画像** — 基于你的背景、兴趣、偏好定制评分
 - **8 种推送渠道** — 飞书 / 钉钉 / 企业微信 / 邮件 / Telegram / Bark / Server酱 / PushPlus
+- **12+ AI 模型支持** — Anthropic / OpenAI / DeepSeek / 通义千问 / 硅基流动 / Ollama 等
+- **高度可配置** — 品牌名、评分维度、过滤规则、AI 参数、定时任务等均可自定义
 - **评分日志** — 完整保留所有文章评分，供持续调优
 
 ## 数据流
 
 ```
 公众号列表（config.yaml）
-  → [Step 0] 规则预过滤（零成本，极保守策略）
+  → [Step 0] 规则预过滤（零成本，可自定义关键词和白名单）
   → [Step 1] 跨源去重（bigram Jaccard + 正文相似度）
-  → [Step 2] AI 4 维度评分（LLM + Pydantic 结构化输出）
-  → [Step 3] 排序 Top N（综合分 < 5 不推送）
-  → [Step 4] 生成开场白（LLM 额外调用）
+  → [Step 2] AI 多维度评分（LLM + 动态维度配置）
+  → [Step 3] 排序 Top N（综合分 < 阈值不推送）
+  → [Step 4] 生成开场白（LLM 额外调用，风格可自定义）
   → [Step 5] 推送（8 种渠道按需配置）
   → [Step 6] 保存 state + 评分日志
 ```
@@ -47,6 +49,8 @@ AI 驱动的微信公众号智能日报 — 自动抓取、多维度评分、个
 | credibility | 可信度（数据支撑、来源可靠） |
 | entertainment | 趣味性（故事性强、引人入胜） |
 
+也可以自定义全新的维度，只需在 config 中定义 name + description + weight。
+
 综合分 1-10，< 5 不推送，取 Top 20。维度、权重、阈值均可自定义。
 
 ## 快速开始
@@ -61,32 +65,40 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. 配置
-
-复制环境变量模板并填写：
+### 2. 配置环境变量
 
 ```bash
 cp .env.example .env
 ```
 
-需要配置：
-- AI 评分模型（任选其一）：Anthropic Claude / OpenAI / DeepSeek / 硅基流动 / 通义千问 / 月之暗面 / 智谱 GLM / Ollama 本地模型等（任何 OpenAI 兼容接口均可）
-- 推送渠道（至少选一个）：
-  - `FEISHU_WEBHOOK` — 飞书群机器人
-  - `DINGTALK_WEBHOOK` — 钉钉群机器人
-  - `WECOM_WEBHOOK` — 企业微信群机器人
-  - `EMAIL_USER` / `EMAIL_PASSWORD` / `EMAIL_TO` — 邮件（自动识别 Gmail / QQ邮箱 / 163邮箱 / Outlook）
-  - `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` — Telegram Bot
-  - `BARK_URL` — Bark（iOS 推送）
-  - `SERVERCHAN_KEY` — Server酱（推送到微信）
-  - `PUSHPLUS_TOKEN` — PushPlus（推送到微信）
+编辑 `.env`，配置两项：
 
-编辑 `config.yaml`：
+**AI 模型**（任选其一，详见 `.env.example` 中的配置参考）：
+- Anthropic Claude
+- OpenAI / DeepSeek / 硅基流动 / 通义千问 / 月之暗面 / 智谱 GLM / MiniMax / 百度文心 / 零一万物 / 百川 / 讯飞星火
+- Ollama 本地模型
+- 任何 OpenAI 兼容接口
+
+**推送渠道**（至少选一个）：
+- `FEISHU_WEBHOOK` — 飞书群机器人
+- `DINGTALK_WEBHOOK` — 钉钉群机器人
+- `WECOM_WEBHOOK` — 企业微信群机器人
+- `EMAIL_USER` / `EMAIL_PASSWORD` / `EMAIL_TO` — 邮件（自动识别 Gmail / QQ邮箱 / 163邮箱 / Outlook）
+- `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` — Telegram Bot
+- `BARK_URL` — Bark（iOS 推送）
+- `SERVERCHAN_KEY` — Server酱（推送到微信）
+- `PUSHPLUS_TOKEN` — PushPlus（推送到微信）
+
+### 3. 编辑 config.yaml
+
 - `accounts` — 已内置 48 个精选 AI / 科技 / 创投方向优质公众号，可直接使用或自行增删
-- `profile` — 你的背景和兴趣（用于个性化评分）
-- `scoring` — 评分权重和阈值
+- `profile` — 填写你的背景和兴趣（用于个性化评分）
+- `scoring.dimensions` — 评分维度和权重（默认即可，也可自定义）
+- `branding` — 自定义日报标题和页脚署名
+- `ai` — AI 温度、正文截取长度、开场白风格等
+- `dedup` / `prefilter` — 去重阈值、过滤关键词（可选调整）
 
-### 3. 登录微信
+### 4. 登录微信
 
 ```bash
 python3 main.py --login
@@ -94,7 +106,7 @@ python3 main.py --login
 
 扫码登录后 token 会保存到 `token.json`（有效期约 3 天）。
 
-### 4. 运行
+### 5. 运行
 
 ```bash
 # 测试模式（每个公众号取 1 篇，实际推送）
@@ -107,7 +119,7 @@ python3 main.py --dry-run
 python3 main.py
 ```
 
-### 5. 定时任务
+### 6. 定时任务
 
 在 `config.yaml` 中配置运行时间：
 
@@ -125,20 +137,46 @@ python3 main.py --setup-cron   # 自动配置定时任务
 python3 main.py --remove-cron  # 移除定时任务
 ```
 
+## 配置一览
+
+所有配置集中在 `config.yaml`，均有默认值：
+
+| 配置项 | 说明 | 默认值 |
+|--------|------|--------|
+| `accounts` | 监控的公众号列表 | 48 个精选账号 |
+| `profile` | 用户背景和兴趣 | 示例模板 |
+| `fetch.hours` | 抓取时间范围 | 24 小时 |
+| `fetch.request_interval` | API 请求间隔 | 1.5 秒 |
+| `branding.title` | 日报标题 | "微信公众号日报" |
+| `branding.footer` | 邮件页脚 | "由 wechat-radar 自动生成" |
+| `ai.temperature` | 评分 AI 温度 | 0.3 |
+| `ai.intro_temperature` | 开场白 AI 温度 | 0.5 |
+| `ai.max_content_length` | 送入 AI 的正文长度 | 4000 字符 |
+| `ai.min_content_length` | 跳过评分的最短正文 | 50 字符 |
+| `ai.intro_style` | 自定义开场白风格 | 内置 prompt |
+| `scoring.dimensions` | 评分维度（名称+描述+权重） | 4 个核心维度 |
+| `scoring.min_score` | 推送最低分 | 5 |
+| `scoring.top_n` | 最多推送篇数 | 20 |
+| `dedup.title_threshold` | 去重相似度阈值 | 0.5 |
+| `prefilter.tech_whitelist` | 技术关键词白名单 | AI/技术词列表 |
+| `prefilter.ad_rules` | 广告过滤规则 | 限时促销+免费领引流 |
+| `schedule.cron` | 定时运行表达式 | 09:00 + 18:00 |
+| `schedule.log_file` | Cron 日志路径 | /tmp/wechat-radar.log |
+
 ## 项目结构
 
 ```
 wechat-radar/
-├── main.py          主入口（--test / --dry-run / --login）
-├── config.yaml      公众号列表 + 用户画像 + 评分权重
+├── main.py          主入口（--test / --dry-run / --login / --setup-cron）
+├── config.yaml      公众号列表 + 用户画像 + 所有可配置项
 ├── fetcher.py       微信官方 API 拉取 + fakeid/文章内容缓存
-├── filter.py        AI 多维度评分 + 开场白生成
-├── prefilter.py     规则预过滤（关键词组合 + 技术白名单）
+├── filter.py        AI 多维度评分（动态维度）+ 开场白生成
+├── prefilter.py     规则预过滤（可配置关键词 + 白名单）
 ├── dedup.py         跨源去重（bigram Jaccard + 正文相似度）
 ├── notifier.py      多渠道推送（8 种渠道）
 ├── auth.py          微信扫码登录 / token 管理
 ├── assets/          Newsletter 头图等静态资源
-├── .env.example     环境变量模板
+├── .env.example     环境变量模板（AI 模型 + 推送渠道配置参考）
 └── requirements.txt 依赖列表
 ```
 
@@ -146,8 +184,8 @@ wechat-radar/
 
 ### 邮件 Newsletter
 
-- 固定品牌 banner 头图
-- AI 生成的卷首语（每日不同）
+- 自定义品牌 banner 头图
+- AI 生成的卷首语（每日不同，风格可配置）
 - 本期概要（按分类导览）
 - 按 category 分区展示（深度分析 / 行业观察 / 工具推荐 / 活动资讯）
 - 每篇文章：标题 + 缩略图 + 摘要 + 推荐理由 + 维度评分
@@ -161,7 +199,7 @@ wechat-radar/
 
 ## 技术栈
 
-- **AI 评分**：支持 Anthropic Claude / OpenAI / DeepSeek / 通义千问 / 硅基流动 / Ollama 等任何 OpenAI 兼容接口
+- **AI 评分**：支持 Anthropic Claude / OpenAI / DeepSeek / 通义千问 / 硅基流动 / Ollama 等 12+ 服务商
 - **结构化输出**：Pydantic v2
 - **微信 API**：mp.weixin.qq.com 官方接口（searchbiz + appmsgpublish）
 - **正文提取**：BeautifulSoup + lxml
@@ -169,7 +207,7 @@ wechat-radar/
 
 ## Roadmap
 
-- [ ] 飞书卡片模板升级（跟 Gmail 对齐）
+- [ ] 飞书卡片模板升级（跟邮件对齐）
 - [ ] 周报汇总（攒一周评分日志，周末出精选）
 - [ ] 更多信息源（RSS、Product Hunt、Twitter）
 - [ ] 两阶段过滤（embedding 粗筛 + LLM 精排）
