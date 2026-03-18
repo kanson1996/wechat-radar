@@ -85,6 +85,7 @@ fetch:
 branding:
   title: "微信公众号日报"           # 日报标题，会出现在所有推送渠道
   footer: "由 wechat-radar 自动生成" # 邮件页脚署名
+  # banner: "assets/banner.png"    # 邮件 banner 头图路径（相对于项目目录或绝对路径），默认 assets/banner.png
 
 ai:
   temperature: 0.3        # 评分 AI 温度（越低越稳定）

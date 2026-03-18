@@ -486,8 +486,12 @@ def send_email(articles: list[dict], intro: str = "", branding: dict = None) -> 
     msg_alt.attach(MIMEText(html_body, "html", "utf-8"))
     msg.attach(msg_alt)
 
-    # 内嵌 banner 图片
-    banner_path = Path(__file__).parent / "assets" / "banner.png"
+    # 内嵌 banner 图片（支持 branding.banner 自定义路径，默认 assets/banner.png）
+    custom_banner = (branding or {}).get("banner", "")
+    if custom_banner:
+        banner_path = Path(custom_banner) if Path(custom_banner).is_absolute() else Path(__file__).parent / custom_banner
+    else:
+        banner_path = Path(__file__).parent / "assets" / "banner.png"
     if banner_path.exists():
         with open(banner_path, "rb") as f:
             banner_img = MIMEImage(f.read(), _subtype="png")

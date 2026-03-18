@@ -158,6 +158,7 @@ python3 main.py --remove-cron  # 移除定时任务
 | `fetch.request_interval` | API 请求间隔 | 1.5 秒 |
 | `branding.title` | 日报标题 | "微信公众号日报" |
 | `branding.footer` | 邮件页脚 | "由 wechat-radar 自动生成" |
+| `branding.banner` | 邮件 banner 头图路径 | `assets/banner.png` |
 | `ai.temperature` | 评分 AI 温度 | 0.3 |
 | `ai.intro_temperature` | 开场白 AI 温度 | 0.5 |
 | `ai.max_content_length` | 送入 AI 的正文长度 | 4000 字符 |
