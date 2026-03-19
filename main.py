@@ -455,7 +455,7 @@ def setup_cron():
     new_lines = []
     for expr in cron_list:
         expr = expr.strip()
-        cmd = f"{expr} cd {project_dir} && {python_path} main.py >> {log_file} 2>&1 {_CRON_TAG}"
+        cmd = f'{expr} cd "{project_dir}" && "{python_path}" main.py >> "{log_file}" 2>&1 {_CRON_TAG}'
         new_lines.append(cmd)
 
     all_lines = other_lines + new_lines

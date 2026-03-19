@@ -6,6 +6,7 @@ import logging
 import os
 import re
 import subprocess
+import tempfile
 import time
 from datetime import datetime, timezone
 from http.cookiejar import CookieJar
@@ -147,7 +148,7 @@ def _download_qrcode(session: requests.Session, uuid: str) -> Optional[Path]:
             timeout=15,
         )
         if resp.status_code == 200 and resp.content:
-            qr_path = Path("/tmp/wechat_qr.png")
+            qr_path = Path(tempfile.gettempdir()) / "wechat_qr.png"
             qr_path.write_bytes(resp.content)
             return qr_path
     except Exception as e:
